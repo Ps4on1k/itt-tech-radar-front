@@ -114,14 +114,16 @@ export function validateTechRadarEntity(entity: Partial<TechRadarEntity>, isUpda
     }
   }
 
-  // Валидация числовых полей (проверяем только если значение задано и не пустая строка)
-  if (entity.adoptionRate !== undefined && entity.adoptionRate !== null && entity.adoptionRate !== '') {
-    if (typeof entity.adoptionRate !== 'number' || entity.adoptionRate < 0 || entity.adoptionRate > 1) {
+  // Валидация числовых полей (проверяем только если значение задано)
+  if (entity.adoptionRate !== undefined && entity.adoptionRate !== null) {
+    const adoptionRate = typeof entity.adoptionRate === 'string' ? parseFloat(entity.adoptionRate) : entity.adoptionRate;
+    if (typeof adoptionRate !== 'number' || isNaN(adoptionRate) || adoptionRate < 0 || adoptionRate > 1) {
       errors.push({ field: 'adoptionRate', message: 'adoptionRate должно быть числом от 0 до 1' });
     }
   }
-  if (entity.popularityIndex !== undefined && entity.popularityIndex !== null && entity.popularityIndex !== '') {
-    if (typeof entity.popularityIndex !== 'number' || entity.popularityIndex < 0 || entity.popularityIndex > 1) {
+  if (entity.popularityIndex !== undefined && entity.popularityIndex !== null) {
+    const popularityIndex = typeof entity.popularityIndex === 'string' ? parseFloat(entity.popularityIndex) : entity.popularityIndex;
+    if (typeof popularityIndex !== 'number' || isNaN(popularityIndex) || popularityIndex < 0 || popularityIndex > 1) {
       errors.push({ field: 'popularityIndex', message: 'popularityIndex должно быть числом от 0 до 1' });
     }
   }

@@ -1,6 +1,6 @@
 import React from 'react';
-import { FixedSizeList as List } from 'react-window';
-import AutoSizer from 'react-virtualized-auto-sizer';
+import { List } from 'react-window';
+import { AutoSizer } from 'react-virtualized-auto-sizer';
 
 export interface VirtualListProps<T> {
   items: T[];
@@ -29,23 +29,23 @@ export function VirtualList<T>({
 
   return (
     <div className={`h-full ${className}`}>
-      <AutoSizer>
-        {({ height, width }) => (
-          <List
-            height={height}
-            width={width}
-            itemCount={items.length}
-            itemSize={itemHeight}
-            overscanCount={overscanCount}
-          >
-            {({ index, style }) => (
-              <div style={style}>
-                {renderItem(items[index], index)}
-              </div>
-            )}
-          </List>
+      <AutoSizer
+        renderProp={({ height, width }) => (
+          <div style={{ height, width }}>
+            <List
+              rowHeight={itemHeight}
+              rowCount={items.length}
+              overscanCount={overscanCount}
+              rowProps={{}}
+              rowComponent={({ style, index }) => (
+                <div style={style}>
+                  {renderItem(items[index], index)}
+                </div>
+              )}
+            />
+          </div>
         )}
-      </AutoSizer>
+      />
     </div>
   );
 }
@@ -90,23 +90,23 @@ export function VirtualTable<T>({
         </div>
       )}
       <div className="flex-1 overflow-hidden">
-        <AutoSizer>
-          {({ height, width }) => (
-            <List
-              height={height}
-              width={width}
-              itemCount={items.length}
-              itemSize={rowHeight}
-              overscanCount={overscanCount}
-            >
-              {({ index, style }) => (
-                <div style={style}>
-                  {renderRow(items[index], index)}
-                </div>
-              )}
-            </List>
+        <AutoSizer
+          renderProp={({ height, width }) => (
+            <div style={{ height, width }}>
+              <List
+                rowHeight={rowHeight}
+                rowCount={items.length}
+                overscanCount={overscanCount}
+                rowProps={{}}
+                rowComponent={({ style, index }) => (
+                  <div style={style}>
+                    {renderRow(items[index], index)}
+                  </div>
+                )}
+              />
+            </div>
           )}
-        </AutoSizer>
+        />
       </div>
     </div>
   );

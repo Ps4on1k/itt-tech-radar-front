@@ -236,8 +236,8 @@ export const TechRadarModal: React.FC<TechRadarModalProps> = ({ entity, onClose,
       // Очищаем пустые значения перед валидацией
       const entityToValidate = {
         ...localEntity,
-        adoptionRate: localEntity.adoptionRate === null || localEntity.adoptionRate === undefined || localEntity.adoptionRate === '' ? undefined : localEntity.adoptionRate,
-        popularityIndex: localEntity.popularityIndex === null || localEntity.popularityIndex === undefined || localEntity.popularityIndex === '' ? undefined : localEntity.popularityIndex,
+        adoptionRate: localEntity.adoptionRate == null ? undefined : localEntity.adoptionRate,
+        popularityIndex: localEntity.popularityIndex == null ? undefined : localEntity.popularityIndex,
       };
 
       // Полная валидация сущности
@@ -278,8 +278,8 @@ export const TechRadarModal: React.FC<TechRadarModalProps> = ({ entity, onClose,
       // Очищаем пустые значения перед валидацией
       const entityToValidate = {
         ...localEntity,
-        adoptionRate: localEntity.adoptionRate === null || localEntity.adoptionRate === undefined || localEntity.adoptionRate === '' ? undefined : localEntity.adoptionRate,
-        popularityIndex: localEntity.popularityIndex === null || localEntity.popularityIndex === undefined || localEntity.popularityIndex === '' ? undefined : localEntity.popularityIndex,
+        adoptionRate: localEntity.adoptionRate == null ? undefined : localEntity.adoptionRate,
+        popularityIndex: localEntity.popularityIndex == null ? undefined : localEntity.popularityIndex,
       };
 
       // Полная валидация сущности (isUpdate=true)

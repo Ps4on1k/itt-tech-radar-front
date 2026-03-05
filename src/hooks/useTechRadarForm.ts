@@ -1,6 +1,6 @@
-import { useForm, UseFormProps } from 'react-hook-form';
+import { useForm, type UseFormProps } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { techRadarSchema, CreateTechRadarFormData, UpdateTechRadarFormData } from '../schemas/techRadarSchema';
+import { techRadarSchema, type CreateTechRadarFormData, type UpdateTechRadarFormData } from '../schemas/techRadarSchema';
 
 /**
  * Хук для формы создания/редактирования TechRadar
@@ -9,7 +9,7 @@ import { techRadarSchema, CreateTechRadarFormData, UpdateTechRadarFormData } fro
  */
 export function useTechRadarForm(options?: UseFormProps<CreateTechRadarFormData>) {
   return useForm<CreateTechRadarFormData>({
-    resolver: zodResolver(techRadarSchema),
+    resolver: zodResolver(techRadarSchema) as any,
     mode: 'onChange', // Валидация при изменении
     reValidateMode: 'onChange', // Перевалидация при изменении
     ...options,
@@ -23,7 +23,7 @@ export function useTechRadarForm(options?: UseFormProps<CreateTechRadarFormData>
  */
 export function useTechRadarUpdateForm(options?: UseFormProps<UpdateTechRadarFormData>) {
   return useForm<UpdateTechRadarFormData>({
-    resolver: zodResolver(techRadarSchema.partial()),
+    resolver: zodResolver(techRadarSchema.partial()) as any,
     mode: 'onChange',
     reValidateMode: 'onChange',
     ...options,

@@ -1,4 +1,4 @@
-import { toast, ToastContent, ToastOptions, Id } from 'react-toastify';
+import { toast, type ToastContent, type ToastOptions, type Id } from 'react-toastify';
 
 const defaultOptions: ToastOptions = {
   position: 'top-right',
@@ -83,8 +83,8 @@ export const useNotification = () => {
     options?: NotificationOptions
   ): Promise<T> => {
     const { title, ...restOptions } = options || {};
-    
-    return toast.promise(
+
+    return toast.promise<T>(
       promise,
       {
         pending: title ? `${title}: ${messages.pending}` : messages.pending,
@@ -94,7 +94,7 @@ export const useNotification = () => {
       {
         ...defaultOptions,
         ...restOptions,
-      }
+      } as any
     );
   };
 

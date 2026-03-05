@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { techRadarSchema, createTechRadarSchema } from '../schemas/techRadarSchema';
+import { techRadarSchema } from '../../schemas/techRadarSchema';
 
 describe('techRadarSchema', () => {
   const validBaseData = {
@@ -28,7 +28,7 @@ describe('techRadarSchema', () => {
       const result = techRadarSchema.safeParse({ ...validBaseData, name: undefined });
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors.some(e => e.path.includes('name'))).toBe(true);
+        expect(result.error.issues.some((e: any) => e.path.includes('name'))).toBe(true);
       }
     });
 
