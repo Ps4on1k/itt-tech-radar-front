@@ -49,13 +49,10 @@ export const Navbar: React.FC = () => {
           api.get('/notifications?limit=5&isRead=false'),
           api.get('/notifications/unread-count'),
         ]);
-        console.log('Notifications response:', notificationsRes.data);
-        console.log('Unread count response:', unreadRes.data);
         // API возвращает { notifications: Notification[], unreadCount, total }
         const notificationsData = Array.isArray(notificationsRes.data) 
           ? notificationsRes.data 
           : notificationsRes.data?.notifications || notificationsRes.data?.data || [];
-        console.log('Parsed notifications:', notificationsData);
         setNotifications(notificationsData);
         // unreadRes возвращает { count: number } или просто число
         setUnreadCount(unreadRes.data?.count || unreadRes.data || 0);
