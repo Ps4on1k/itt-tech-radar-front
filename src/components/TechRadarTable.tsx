@@ -24,7 +24,7 @@ const RISK_COLORS: Record<string, string> = {
   critical: '#FF4444',
 };
 
-type SortField = 'name' | 'version' | 'category' | 'riskLevel' | 'type' | 'subtype' | 'license' | 'owner' | 'versionToUpdate';
+type SortField = 'name' | 'version' | 'category' | 'riskLevel' | 'type' | 'subtype' | 'license' | 'owner' | 'versionUpdateDeadline';
 type SortOrder = 'asc' | 'desc';
 
 export const TechRadarTable: React.FC<TechRadarTableProps> = ({ data, radarCategory, radarType, onRowClick, onRadarFilter }) => {
@@ -40,7 +40,8 @@ export const TechRadarTable: React.FC<TechRadarTableProps> = ({ data, radarCateg
     license: '',
     owner: '',
   });
-  const [sortField, setSortField] = useState<SortField>('name');
+  // Сортировка по умолчанию: по дате обновления (чем ближе дата, тем выше)
+  const [sortField, setSortField] = useState<SortField>('versionUpdateDeadline');
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
 
   const filteredData = useMemo(() => {
@@ -59,6 +60,26 @@ export const TechRadarTable: React.FC<TechRadarTableProps> = ({ data, radarCateg
 
   const sortedData = useMemo(() => {
     return [...filteredData].sort((a, b) => {
+      // Специальная сортировка для versionUpdateDeadline - по близости к текущей дате
+      if (sortField === 'versionUpdateDeadline') {
+        const now = new Date();
+        const dateA = a.versionUpdateDeadline ? new Date(a.versionUpdateDeadline) : null;
+        const dateB = b.versionUpdateDeadline ? new Date(b.versionUpdateDeadline) : null;
+        
+        // Записи без даты в конце
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        
+        // Считаем разницу в днях от текущей даты
+        const diffA = Math.abs(dateA.getTime() - now.getTime());
+        const diffB = Math.abs(dateB.getTime() - now.getTime());
+        
+        // Чем меньше разница (ближе дата), тем выше в списке
+        return sortOrder === 'asc' ? diffA - diffB : diffB - diffA;
+      }
+      
+      // Стандартная сортировка для остальных полей
       const aVal = String(a[sortField] || '').toLowerCase();
       const bVal = String(b[sortField] || '').toLowerCase();
       const cmp = aVal.localeCompare(bVal, 'ru');
@@ -221,8 +242,8 @@ export const TechRadarTable: React.FC<TechRadarTableProps> = ({ data, radarCateg
               <th onClick={() => handleSort('version')} className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 cursor-pointer select-none whitespace-nowrap hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                 Версия <SortIcon field="version" />
               </th>
-              <th onClick={() => handleSort('versionToUpdate')} className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 cursor-pointer select-none whitespace-nowrap hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                Обновление <SortIcon field="versionToUpdate" />
+              <th onClick={() => handleSort('versionUpdateDeadline')} className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 cursor-pointer select-none whitespace-nowrap hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                Обновление <SortIcon field="versionUpdateDeadline" />
               </th>
               <th onClick={() => handleSort('category')} className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700 cursor-pointer select-none whitespace-nowrap hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                 Категория <SortIcon field="category" />
@@ -258,12 +279,18 @@ export const TechRadarTable: React.FC<TechRadarTableProps> = ({ data, radarCateg
                   <span className="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded font-mono text-gray-900 dark:text-gray-100">{entity.version}</span>
                 </td>
                 <td className="px-3 py-2.5 text-xs text-gray-600 dark:text-gray-400">
-                  {entity.versionToUpdate ? (
+                  {entity.versionUpdateDeadline ? (
                     <div className="flex flex-col gap-0.5">
-                      <span className="font-medium text-red-600 dark:text-red-400">{entity.versionToUpdate}</span>
-                      {entity.versionUpdateDeadline && (
-                        <span className="text-[10px] text-gray-500 dark:text-gray-500">до {entity.versionUpdateDeadline}</span>
+                      {entity.versionToUpdate && (
+                        <span className="font-medium text-red-600 dark:text-red-400">{entity.versionToUpdate}</span>
                       )}
+                      <span className={`text-[10px] ${
+                        new Date(entity.versionUpdateDeadline) < new Date() 
+                          ? 'text-red-600 dark:text-red-400 font-semibold' 
+                          : 'text-gray-500 dark:text-gray-500'
+                      }`}>
+                        до {new Date(entity.versionUpdateDeadline).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: '2-digit' })}
+                      </span>
                     </div>
                   ) : (
                     <span className="text-gray-300 dark:text-gray-600">—</span>
