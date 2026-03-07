@@ -19,3 +19,9 @@ export { ThemeToggle } from './ThemeToggle';
 
 export { Pagination } from './Pagination';
 export type { PaginationProps } from './Pagination';
+
+export { Gauge } from './Gauge';
+export type { GaugeProps } from './Gauge';
+
+export { Tooltip, InfoIcon } from './Tooltip';
+export type { TooltipProps } from './Tooltip';
