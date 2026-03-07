@@ -4,7 +4,7 @@ import { aiConfigApi } from '../services/api';
 import type { AIConfig, AIConfigGlobalSettings } from '../types';
 import { Navigate } from 'react-router-dom';
 import { useNotification } from '../hooks/useNotification';
-import { Modal, Button, Input, Switch, Textarea } from '../ui';
+import { Modal, Button, Input, Switch } from '../ui';
 
 // Список всех полей TechRadar сущности с отображаемыми именами
 const TECH_RADAR_FIELDS = [
@@ -58,8 +58,6 @@ export const AIUpdatePage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showGlobalSettingsModal, setShowGlobalSettingsModal] = useState(false);
-  const [editingConfig, setEditingConfig] = useState<AIConfig | null>(null);
-  const [promptValue, setPromptValue] = useState('');
 
   useEffect(() => {
     if (isAuthenticated && !isAdmin) {
@@ -113,32 +111,6 @@ export const AIUpdatePage: React.FC = () => {
     } catch (err: any) {
       notification.error('Ошибка обновления', { title: err.response?.data?.message || 'Ошибка' });
     }
-  };
-
-  const handleEditPrompt = (config: AIConfig) => {
-    setEditingConfig(config);
-    setPromptValue(config.prompt);
-  };
-
-  const handleSavePrompt = async () => {
-    if (!editingConfig) return;
-    
-    try {
-      setSaving(true);
-      const updated = await aiConfigApi.update(editingConfig.id, { prompt: promptValue });
-      setConfigs(configs.map(c => c.id === editingConfig.id ? updated : c));
-      notification.success('Промпт сохранен', { title: editingConfig.displayName });
-      handleCloseModal();
-    } catch (err: any) {
-      notification.error('Ошибка сохранения', { title: err.response?.data?.message || 'Ошибка' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCloseModal = () => {
-    setEditingConfig(null);
-    setPromptValue('');
   };
 
   const handleSaveGlobalSettings = async () => {
@@ -246,20 +218,6 @@ export const AIUpdatePage: React.FC = () => {
                         {config.fieldName}
                       </span>
                     </div>
-                    <div className="mt-2 flex items-center gap-4">
-                      <button
-                        onClick={() => handleEditPrompt(config)}
-                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                      >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Редактировать промпт
-                      </button>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-md">
-                        {config.prompt}
-                      </span>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -267,32 +225,6 @@ export const AIUpdatePage: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* Модалка редактирования промпта */}
-      <Modal
-        isOpen={!!editingConfig}
-        onClose={handleCloseModal}
-        title={`Промпт для ${editingConfig?.displayName}`}
-        size="lg"
-      >
-        <div className="space-y-4">
-          <Textarea
-            label="Текст промпта"
-            value={promptValue}
-            onChange={(e) => setPromptValue(e.target.value)}
-            rows={6}
-            placeholder="Введите текст промпта..."
-          />
-          <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="secondary" onClick={handleCloseModal}>
-              Отмена
-            </Button>
-            <Button type="button" variant="primary" onClick={handleSavePrompt} loading={saving}>
-              Сохранить
-            </Button>
-          </div>
-        </div>
-      </Modal>
 
       {/* Модалка глобальных настроек */}
       <Modal
