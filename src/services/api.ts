@@ -307,8 +307,11 @@ export const migrationMetadataApi = {
     return response.data;
   },
 
-  updatePriorities: async (items: Array<{ id: string; priority: number }>): Promise<MigrationMetadataView[]> => {
-    const response = await api.put('/migration-metadata/priorities', { items });
+  updatePriorities: async (
+    items: Array<{ id: string; priority: number }>,
+    techRadarIds?: Record<string, string>
+  ): Promise<MigrationMetadataView[]> => {
+    const response = await api.put('/migration-metadata/priorities', { items, techRadarIds });
     return response.data;
   },
 

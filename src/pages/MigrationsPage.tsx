@@ -31,6 +31,7 @@ interface SortableRowProps {
   onUpdateProgress: (metadataId: string, techRadarId: string, hasMetadata: boolean, progress: number) => Promise<void>;
   onSaveFields: (techRadarId: string, fields: { versionToUpdate?: string; versionUpdateDeadline?: string; upgradePath?: string; recommendedAlternatives?: string }) => Promise<void>;
   getStatusColor: (status: MigrationStatus) => string;
+  canDrag: boolean;
 }
 
 const SortableRow: React.FC<SortableRowProps> = ({
@@ -40,6 +41,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
   onUpdateProgress,
   onSaveFields,
   getStatusColor,
+  canDrag,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editVersion, setEditVersion] = useState(item.versionToUpdate || '');
@@ -159,7 +161,7 @@ const SortableRow: React.FC<SortableRowProps> = ({
       <td className="px-4 py-3" colSpan={5}>
         <div className="flex items-start gap-3">
           {/* Drag handle */}
-          {isAdminOrManager && (
+          {isAdminOrManager && canDrag && (
             <button
               {...attributes}
               {...listeners}
@@ -411,8 +413,16 @@ export const MigrationsPage: React.FC = () => {
         ]);
         setMigrationItems(metadataResponse);
         setStats(statsResponse);
-        // Инициализируем порядок отображения на основе priority
-        const sorted = [...metadataResponse].sort((a, b) => a.priority - b.priority);
+        // Инициализируем порядок отображения: сначала активные (не бэклог), потом бэклог
+        const sorted = [...metadataResponse].sort((a, b) => {
+          // Активные элементы (не бэклог) выше бэклога
+          const aIsBacklog = !a.hasMetadata || a.status === 'backlog';
+          const bIsBacklog = !b.hasMetadata || b.status === 'backlog';
+          if (aIsBacklog && !bIsBacklog) return 1;
+          if (!aIsBacklog && bIsBacklog) return -1;
+          // Внутри групп сортируем по priority
+          return a.priority - b.priority;
+        });
         setDisplayOrder(sorted.map(i => i.metadataId));
       } catch (err: any) {
         console.error('Ошибка загрузки данных:', err);
@@ -468,36 +478,51 @@ export const MigrationsPage: React.FC = () => {
     if (updateFields.recommendedAlternatives !== undefined) {
       updateFields.recommendedAlternatives = String(updateFields.recommendedAlternatives);
     }
-    
+
     await techRadarApi.update(techRadarId, updateFields);
-    setMigrationItems((prev: MigrationItem[]) => prev.map((item: MigrationItem) => 
+    
+    // Находим элемент и создаём для него метаданные если их нет
+    const item = migrationItems.find(i => i.techRadarId === techRadarId);
+    if (item && !item.hasMetadata) {
+      // Создаём сущность метаданных со статусом backlog
+      try {
+        const response = await migrationMetadataApi.updateWithTechRadarId(techRadarId, { 
+          status: 'backlog',
+          progress: 0,
+          priority: item.priority 
+        });
+        setMigrationItems((prev: MigrationItem[]) => prev.map((prevItem: MigrationItem) =>
+          prevItem.techRadarId === techRadarId 
+            ? { ...prevItem, ...fields, hasMetadata: true, metadataId: response.id } 
+            : prevItem
+        ));
+        return;
+      } catch (err: any) {
+        console.error('Ошибка создания метаданных:', err);
+      }
+    }
+    
+    setMigrationItems((prev: MigrationItem[]) => prev.map((item: MigrationItem) =>
       item.techRadarId === techRadarId ? { ...item, ...fields } : item
     ));
   };
 
   const handleUpdateMetadata = async (
-    metadataId: string,
+    _metadataId: string,
     techRadarId: string,
-    hasMetadata: boolean,
+    _hasMetadata: boolean,
     dto: { priority?: number; status?: MigrationStatus; progress?: number }
   ) => {
     try {
-      if (!hasMetadata) {
-        // Для записей без метаданных используем upsert (backend создаст новую запись)
-        const response = await migrationMetadataApi.updateWithTechRadarId(techRadarId, dto);
-        // Обновляем локальное состояние
-        setMigrationItems(prev => prev.map(item =>
-          item.techRadarId === techRadarId
-            ? { ...item, ...dto, hasMetadata: true, metadataId: response.id }
-            : item
-        ));
-      } else {
-        // Обновляем существующую запись
-        await migrationMetadataApi.update(metadataId, dto);
-        setMigrationItems(prev => prev.map(item =>
-          item.metadataId === metadataId ? { ...item, ...dto } : item
-        ));
-      }
+      // Всегда используем upsert - backend создаст или обновит запись
+      const response = await migrationMetadataApi.updateWithTechRadarId(techRadarId, dto);
+      
+      // Обновляем локальное состояние
+      setMigrationItems(prev => prev.map(item =>
+        item.techRadarId === techRadarId
+          ? { ...item, ...dto, hasMetadata: true, metadataId: response.id }
+          : item
+      ));
     } catch (err: any) {
       console.error('Ошибка обновления метаданных:', err);
       throw err;
@@ -517,22 +542,45 @@ export const MigrationsPage: React.FC = () => {
         // Обновляем порядок отображения
         const newDisplayOrder = arrayMove(displayOrder, oldIndex, newIndex);
         setDisplayOrder(newDisplayOrder);
-        
-        // Получаем новые priority для элементов с hasMetadata=true
-        const priorities = newDisplayOrder
+
+        // Разделяем элементы на активные (не бэклог) и бэклог
+        const activeItems = newDisplayOrder.filter(id => {
+          const item = migrationItems.find(i => i.metadataId === id);
+          return item && item.hasMetadata && item.status !== 'backlog';
+        });
+        const backlogItems = newDisplayOrder.filter(id => {
+          const item = migrationItems.find(i => i.metadataId === id);
+          return item && (!item.hasMetadata || item.status === 'backlog');
+        });
+
+        // Активные элементы вверху, бэклог внизу
+        const finalOrder = [...activeItems, ...backlogItems];
+        setDisplayOrder(finalOrder);
+
+        // Получаем новые priority только для активных элементов
+        const priorities = activeItems
           .map((id, index) => {
             const item = migrationItems.find(i => i.metadataId === id);
-            if (item?.hasMetadata) {
+            if (item) {
               return { id, priority: index };
             }
             return null;
           })
           .filter((p): p is { id: string; priority: number } => p !== null);
 
+        // Создаем карту techRadarIds для элементов без метаданных
+        const techRadarIds: Record<string, string> = {};
+        finalOrder.forEach((id) => {
+          const item = migrationItems.find(i => i.metadataId === id);
+          if (item && !item.hasMetadata) {
+            techRadarIds[id] = item.techRadarId;
+          }
+        });
+
         // Отправляем на сервер
         if (priorities.length > 0) {
           try {
-            await migrationMetadataApi.updatePriorities(priorities);
+            await migrationMetadataApi.updatePriorities(priorities, techRadarIds);
           } catch (err: any) {
             console.error('Ошибка обновления приоритетов:', err);
           }
@@ -713,6 +761,7 @@ export const MigrationsPage: React.FC = () => {
                           key={item.metadataId}
                           item={item}
                           isAdminOrManager={isAdminOrManager}
+                          canDrag={item.hasMetadata && item.status !== 'backlog'}
                           onUpdateStatus={(metadataId, techRadarId, hasMetadata, status) => handleUpdateMetadata(metadataId, techRadarId, hasMetadata, { status })}
                           onUpdateProgress={(metadataId, techRadarId, hasMetadata, progress) => handleUpdateMetadata(metadataId, techRadarId, hasMetadata, { progress })}
                           onSaveFields={handleSaveFields}
