@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { TechRadarEntity, TechRadarCategory, TechRadarType } from '../types';
 import type { ColumnConfig } from './ColumnManager';
+import { exportToCsv } from '../utils/exportToCsv';
 
 interface TechRadarTableProps {
   data: TechRadarEntity[];
@@ -50,10 +51,10 @@ export const TechRadarTable: React.FC<TechRadarTableProps> = ({
   onRowClick, 
   onRadarFilter,
   onEdit,
-  isAdminOrManager = false 
+  isAdminOrManager = false
 }) => {
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(50);
   const [filters, setFilters] = useState({
     name: '',
     version: '',
@@ -157,6 +158,26 @@ export const TechRadarTable: React.FC<TechRadarTableProps> = ({
       setSortField(field);
       setSortOrder('asc');
     }
+  };
+
+  const handleExportCsv = () => {
+    exportToCsv<TechRadarEntity>({
+      data: sortedData,
+      columns: [
+        { key: 'name', label: 'Название' },
+        { key: 'version', label: 'Версия' },
+        { key: 'securityVulnerabilities', label: 'Уязвимости', format: (_, row) => Array.isArray(row.securityVulnerabilities) && row.securityVulnerabilities.length > 0 ? row.securityVulnerabilities.join(', ') : 'Нет' },
+        { key: 'versionUpdateDeadline', label: 'Дедлайн обновления', format: (_, row) => row.versionUpdateDeadline ? new Date(row.versionUpdateDeadline).toLocaleDateString('ru-RU') : '-' },
+        { key: 'versionToUpdate', label: 'Обновить до', format: (_, row) => row.versionToUpdate || '-' },
+        { key: 'category', label: 'Категория' },
+        { key: 'riskLevel', label: 'Риск' },
+        { key: 'license', label: 'Лицензия' },
+        { key: 'type', label: 'Тип' },
+        { key: 'subtype', label: 'Подтип', format: (_, row) => row.subtype || '-' },
+        { key: 'owner', label: 'Владелец' },
+      ],
+      filename: `techradar-export-${new Date().toISOString().split('T')[0]}`,
+    });
   };
 
   const goToPage = (newPage: number) => {
@@ -287,12 +308,24 @@ export const TechRadarTable: React.FC<TechRadarTableProps> = ({
           <span className="text-xs text-gray-600 dark:text-gray-400">
             Найдено: {filteredData.length} из {data.length}
           </span>
-          <button
-            onClick={clearFilters}
-            className="px-3 py-1.5 text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 border-none rounded cursor-pointer text-gray-700 dark:text-gray-300 transition-colors"
-          >
-            Сбросить фильтры
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleExportCsv}
+              className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white border-none rounded cursor-pointer transition-colors flex items-center gap-1.5"
+              title="Скачать все данные в CSV"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Скачать CSV
+            </button>
+            <button
+              onClick={clearFilters}
+              className="px-3 py-1.5 text-xs bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 border-none rounded cursor-pointer text-gray-700 dark:text-gray-300 transition-colors"
+            >
+              Сбросить фильтры
+            </button>
+          </div>
         </div>
       </div>
 

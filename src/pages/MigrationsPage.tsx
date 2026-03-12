@@ -5,6 +5,7 @@ import type { TechRadarEntity, MigrationMetadataView, MigrationStatus, Migration
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { Pagination } from '../ui/Pagination';
+import { exportToCsv } from '../utils/exportToCsv';
 import {
   DndContext,
   closestCenter,
@@ -413,11 +414,11 @@ export const MigrationsPage: React.FC = () => {
 
   // Пагинация для активных миграций
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(50);
 
   // Пагинация и поиск для завершенных миграций
   const [completedCurrentPage, setCompletedCurrentPage] = useState(1);
-  const [completedItemsPerPage, setCompletedItemsPerPage] = useState(10);
+  const [completedItemsPerPage, setCompletedItemsPerPage] = useState(50);
   const [completedSearchTerm, setCompletedSearchTerm] = useState('');
 
   const sensors = useSensors(
@@ -475,39 +476,35 @@ export const MigrationsPage: React.FC = () => {
     }
   }, [migrationItems]);
 
-  const filteredItems = useMemo(() => {
-    // Сначала фильтруем по статусу и поиску
+  // Отфильтрованные элементы (без пагинации) - для SortableContext
+  const filteredItemsNoPagination = useMemo(() => {
     const items = migrationItems.filter(item => {
-      // Фильтр по статусу
       if (filter === 'active') {
-        // Активные = не completed и не backlog (включая без статуса)
         if (item.status === 'completed') return false;
         if (item.status === 'backlog' || !item.hasMetadata) return false;
       }
       if (filter === 'completed' && item.status !== 'completed') return false;
       if (filter === 'backlog') {
-        // Бэклог = backlog + без статуса (hasMetadata = false)
         if (item.status !== 'backlog' && item.hasMetadata) return false;
       }
-
-      // Поиск по названию
       if (searchTerm && !item.techName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
       return true;
     });
 
-    // Сортируем по displayOrder (порядку перетаскивания)
     const orderMap = new Map(displayOrder.map((id, index) => [id, index]));
-    const sorted = items.sort((a, b) => {
+    return items.sort((a, b) => {
       const aIndex = orderMap.get(a.metadataId) ?? 999999;
       const bIndex = orderMap.get(b.metadataId) ?? 999999;
       return aIndex - bIndex;
     });
+  }, [migrationItems, filter, searchTerm, displayOrder]);
 
-    // Применяем пагинацию
+  // Элементы для отображения (с пагинацией)
+  const filteredItems = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    return sorted.slice(startIndex, endIndex);
-  }, [migrationItems, filter, searchTerm, displayOrder, currentPage, itemsPerPage]);
+    return filteredItemsNoPagination.slice(startIndex, endIndex);
+  }, [filteredItemsNoPagination, currentPage, itemsPerPage]);
 
   // Фильтрация и пагинация для завершенных миграций (снапшоты)
   const filteredSnapshots = useMemo(() => {
@@ -649,6 +646,55 @@ export const MigrationsPage: React.FC = () => {
     }
   };
 
+  const handleExportActiveMigrationsCsv = () => {
+    exportToCsv<MigrationItem>({
+      data: filteredItemsNoPagination,
+      columns: [
+        { key: 'techName', label: 'Технология' },
+        { key: 'currentVersion', label: 'Текущая версия' },
+        { key: 'versionToUpdate', label: 'Версия для обновления', format: (_, row) => row.versionToUpdate || '-' },
+        { key: 'versionUpdateDeadline', label: 'Дедлайн', format: (_, row) => row.versionUpdateDeadline ? new Date(row.versionUpdateDeadline).toLocaleDateString('ru-RU') : '-' },
+        { key: 'status', label: 'Статус', format: (_, row) => {
+          const statusMap: Record<MigrationStatus, string> = {
+            backlog: 'Бэклог',
+            planned: 'Запланировано',
+            in_progress: 'В работе',
+            completed: 'Выполнено',
+          };
+          return statusMap[row.status] || String(row.status);
+        }},
+        { key: 'progress', label: 'Прогресс', format: (_, row) => `${row.progress || 0}%` },
+        { key: 'upgradePath', label: 'Путь обновления', format: (_, row) => row.upgradePath || '-' },
+        { key: 'recommendedAlternatives', label: 'Альтернативы', format: (_, row) => {
+          if (!row.recommendedAlternatives) return '-';
+          try {
+            const arr = typeof row.recommendedAlternatives === 'string' && row.recommendedAlternatives.startsWith('[') ? JSON.parse(row.recommendedAlternatives) : row.recommendedAlternatives.split(',');
+            return Array.isArray(arr) ? arr.join(', ') : String(row.recommendedAlternatives);
+          } catch {
+            return String(row.recommendedAlternatives);
+          }
+        }},
+      ],
+      filename: `active-migrations-export-${new Date().toISOString().split('T')[0]}`,
+    });
+  };
+
+  const handleExportCompletedMigrationsCsv = () => {
+    exportToCsv<MigrationSnapshot>({
+      data: snapshots,
+      columns: [
+        { key: 'techName', label: 'Технология' },
+        { key: 'versionBefore', label: 'Версия до' },
+        { key: 'versionAfter', label: 'Версия после', format: (_, row) => row.versionAfter || '-' },
+        { key: 'deadline', label: 'Дедлайн', format: (_, row) => row.deadline ? new Date(row.deadline).toLocaleDateString('ru-RU') : '-' },
+        { key: 'upgradePath', label: 'Путь обновления', format: (_, row) => row.upgradePath || '-' },
+        { key: 'recommendedAlternatives', label: 'Альтернативы', format: (_, row) => row.recommendedAlternatives || '-' },
+        { key: 'completedAt', label: 'Завершена', format: (_, row) => row.completedAt ? new Date(row.completedAt).toLocaleDateString('ru-RU') : '-' },
+      ],
+      filename: `completed-migrations-export-${new Date().toISOString().split('T')[0]}`,
+    });
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     if (!isAdminOrManager) return;
 
@@ -774,7 +820,7 @@ export const MigrationsPage: React.FC = () => {
 
         {/* Вкладки */}
         <div className="mb-6">
-          <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 items-center">
             <button
               onClick={() => setActiveTab('migrations')}
               className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
@@ -795,6 +841,30 @@ export const MigrationsPage: React.FC = () => {
             >
               Завершенные ({snapshots.length})
             </button>
+            <div className="flex-1" />
+            {activeTab === 'migrations' ? (
+              <button
+                onClick={handleExportActiveMigrationsCsv}
+                className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded transition-colors flex items-center gap-1.5"
+                title="Скачать все данные в CSV"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Скачать CSV
+              </button>
+            ) : (
+              <button
+                onClick={handleExportCompletedMigrationsCsv}
+                className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700 text-white rounded transition-colors flex items-center gap-1.5"
+                title="Скачать все данные в CSV"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Скачать CSV
+              </button>
+            )}
           </div>
         </div>
 
@@ -912,7 +982,7 @@ export const MigrationsPage: React.FC = () => {
                 onDragEnd={handleDragEnd}
               >
                 <SortableContext
-                  items={filteredItems.map(i => i.metadataId)}
+                  items={filteredItemsNoPagination.map(i => i.metadataId)}
                   strategy={verticalListSortingStrategy}
                 >
                   <table className="w-full">

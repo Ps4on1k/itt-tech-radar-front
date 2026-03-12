@@ -5,6 +5,7 @@ import type { User, UserRole } from '../types';
 import { Navigate } from 'react-router-dom';
 import { useNotification } from '../hooks/useNotification';
 import { Modal, Button, Input, Select } from '../ui';
+import { exportToCsv } from '../utils/exportToCsv';
 
 interface FormData {
   email: string;
@@ -153,6 +154,21 @@ export const UsersPage: React.FC = () => {
     }
   };
 
+  const handleExportCsv = () => {
+    exportToCsv<User>({
+      data: users,
+      columns: [
+        { key: 'email', label: 'Email' },
+        { key: 'firstName', label: 'Имя' },
+        { key: 'lastName', label: 'Фамилия' },
+        { key: 'role', label: 'Роль', format: (v) => v === 'admin' ? 'Администратор' : v === 'manager' ? 'Менеджер' : 'Пользователь' },
+        { key: 'isActive', label: 'Статус', format: (v) => v ? 'Активен' : 'Заблокирован' },
+        { key: 'createdAt', label: 'Создан', format: (v) => v ? new Date(v as string).toLocaleDateString('ru-RU') : '-' },
+      ],
+      filename: `users-export-${new Date().toISOString().split('T')[0]}`,
+    });
+  };
+
   const handleDelete = async (user: User) => {
     if (!confirm(`Вы уверены, что хотите удалить пользователя ${user.firstName} ${user.lastName}?`)) {
       return;
@@ -199,9 +215,21 @@ export const UsersPage: React.FC = () => {
           <div className="text-sm text-gray-600 dark:text-gray-400">
             Всего пользователей: {users.length}
           </div>
-          <Button onClick={handleOpenCreate} variant="primary">
-            + Добавить пользователя
-          </Button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleExportCsv}
+              className="px-4 py-2 text-sm bg-green-600 hover:bg-green-700 text-white rounded transition-colors flex items-center gap-1.5"
+              title="Скачать все данные в CSV"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Скачать CSV
+            </button>
+            <Button onClick={handleOpenCreate} variant="primary">
+              + Добавить пользователя
+            </Button>
+          </div>
         </div>
 
         {error && (
